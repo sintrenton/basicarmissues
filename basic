@@ -3,7 +3,7 @@ string gAnimReload1 = "Reload 1";
 float gMinimumShootAttackDelay = 0.36;
         // croc hunting: 0.6; combat: 0.36
 integer gBulletVelocity = 155;
-integer    gListenChannel = 8;
+integer    gListenChannel = 0;
 integer gListenHandle = 0;
 integer gGunDrawn = 0;
 integer gGunAim = 0;
