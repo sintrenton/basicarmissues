@@ -1,0 +1,151 @@
+string gAnimStanceP0 = "Aim BH";
+string gAnimReload1 = "Reload 1";
+float gMinimumShootAttackDelay = 0.36;
+        // croc hunting: 0.6; combat: 0.36
+integer gBulletVelocity = 155;
+integer    gListenChannel = 8;
+integer gListenHandle = 0;
+integer gGunDrawn = 0;
+integer gGunAim = 0;
+
+SheathGun() {
+    if( gGunDrawn ) 
+    {
+        llSetTimerEvent(0.0);
+        llReleaseControls();
+        gGunDrawn = 0;
+        if( gGunAim ) 
+            llStopAnimation(gAnimStanceP0);
+    }
+
+    llRegionSay(1911, "show1911");
+    llSetLinkAlpha(LINK_THIS, 0.0, 0);
+    llSetLinkAlpha(LINK_THIS, 0.0, 2);
+    gGunAim = 0;
+}
+
+DrawGun(integer permissions_granted) {
+    if( permissions_granted ) 
+    {
+        llRegionSay(1911, "hide1911");
+        llSetLinkAlpha(LINK_THIS, 1.0, 0);
+        llSetLinkAlpha(LINK_THIS, 1.0, 2);
+        llSetTimerEvent(0.022);
+        llTakeControls(CONTROL_LBUTTON, TRUE, TRUE);
+        gGunDrawn = 1;
+    }
+    else llRequestPermissions(llGetOwner(), 
+        PERMISSION_TAKE_CONTROLS | PERMISSION_TRACK_CAMERA | PERMISSION_TRIGGER_ANIMATION);
+}
+
+CommandChannelFeedback() 
+{
+    if( gListenChannel == 0 )
+        llOwnerSay("Command channel set to global chat.");
+    else
+        llOwnerSay("Command channel set to channel /" + (string)gListenChannel);
+        llOwnerSay("Bullet velocity set to " + (string)gBulletVelocity + " m/sec.");
+        //llOwnerSay("draw: Draw gun.");
+        //llOwnerSay("holster: Holster gun.");
+        //llOwnerSay("vg number: Set bullet velocity to number.");
+}
+
+CheckAttach(key id) {
+    if( id != NULL_KEY )
+    {
+        gListenHandle = llListen(gListenChannel, "", id, "");
+        CommandChannelFeedback();
+    }
+    else 
+    {
+        if( gGunDrawn )
+            SheathGun();
+        llListenRemove(gListenHandle);
+    }
+}
+
+default 
+{
+    state_entry() 
+    {
+        SheathGun();
+        if( llGetAttached() )
+            CheckAttach(llGetOwner());
+    }
+    attach(key id) 
+    {
+        CheckAttach(id);
+    }
+    run_time_permissions(integer perm) 
+    {
+        if( perm == (PERMISSION_TAKE_CONTROLS | PERMISSION_TRACK_CAMERA | PERMISSION_TRIGGER_ANIMATION) ) 
+            DrawGun(TRUE);
+    }
+    listen(integer channel, string name, key id, string msg) 
+    {
+        if( msg == "draw" ) 
+            DrawGun(FALSE);
+        else if( msg == "holster" )
+            SheathGun();
+        else if( llGetSubString(msg, 0, 2) == "vg " ) 
+        {
+            gBulletVelocity = (integer)llGetSubString(msg, 3, -1);
+            llOwnerSay("Bullet velocity set to " + (string)gBulletVelocity + " m/sec.");
+        }
+        else if( msg == "bolt" )
+        {
+            llStartAnimation(gAnimReload1);
+            llTriggerSound("Reload", 1.0);
+            llRezObject("Mag", llGetPos() + <0.0, 0.03, 0.1>*llGetRootRotation(), <0.5,1.5,0>, llGetRootRotation(), 600);
+            llSleep(0.75);
+            llStopAnimation(gAnimReload1);
+        }
+    }
+    control(key id, integer level, integer edge) 
+    {
+        if( level & CONTROL_ML_LBUTTON ) 
+        {
+            if( (llGetTime() > gMinimumShootAttackDelay) || (edge & CONTROL_ML_LBUTTON) ) 
+{    
+                llResetTime();
+                //llTriggerSound( "Silenced", 1.0 ); //2b06c761-73f1-e9b5-c6bb-63f38ed69b67
+                llTriggerSound( "Report", 1.0 );
+                //llTriggerSound( "6e4fe7cf-7e3c-cd79-5cf3-7bb7ee9645b9", 1.0 );
+                //llTriggerSound( "2b06c761-73f1-e9b5-c6bb-63f38ed69b67", 1.0 ); //"original"
+                vector pos = llGetCameraPos();
+                rotation rot = llGetCameraRot();
+                llRezObject("Bullet",
+                    pos + <4.0, 0.0, 0.0> * rot,
+                    <gBulletVelocity, 0, 0> * rot,
+                    llEuler2Rot(<0, 0, 0>) * rot,
+                    0);
+                // llTriggerSound("Reload", 1.0);
+                llRezObject("Shell", llGetPos() + <0.0, 0.03, 0.1>*llGetRootRotation(), <0.5,1.5,0>, llGetRootRotation(), 600);
+            }
+        }
+    }
+
+    no_sensor() 
+    {
+        
+    }
+    
+    timer() 
+    {
+        integer inMouseLook = (llGetAgentInfo(llGetOwner()) & AGENT_MOUSELOOK) > 0;
+        if( gGunAim != inMouseLook ) 
+        {
+            gGunAim = inMouseLook;
+            if( inMouseLook )
+            {
+                llStartAnimation(gAnimStanceP0);
+                llTakeControls(CONTROL_ML_LBUTTON, TRUE, FALSE);
+            }
+            else 
+            {
+                llStopAnimation(gAnimStanceP0);
+                llTakeControls(CONTROL_LBUTTON, TRUE, TRUE);
+            }
+        }
+    }
+}
